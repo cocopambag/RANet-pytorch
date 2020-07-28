@@ -4,7 +4,7 @@ import time
 import shutil
 import models
 
-from dataloader import get_dataloaders
+from dataloader import get_dataloaders, get_custom_dataloader
 from args import args
 from adaptive_inference import dynamic_evaluate
 from op_counter import measure_model
@@ -24,7 +24,7 @@ def main():
 
     global args
     best_prec1, best_epoch = 0.0, 0
-    
+
     if not os.path.exists(args.save):
         os.makedirs(args.save)
 
@@ -32,21 +32,27 @@ def main():
         IM_SIZE = 32
     else:
         IM_SIZE = 224
-    
-    print(args.arch)    
+
+    ##### custom
+    if args.Is:
+        IM_SIZE = args.resolution
+        train_loader, val_loader, test_loader = get_custom_dataloader(args)
+    else:
+        train_loader, val_loader, test_loader = get_dataloaders(args)
+    #####
+
+    print(args.arch)
     model = getattr(models, args.arch)(args)
     args.num_exits = len(model.classifier)
     global n_flops
-
     n_flops, n_params = measure_model(model, IM_SIZE, IM_SIZE)
-    
+
     torch.save(n_flops, os.path.join(args.save, 'flops.pth'))
-    del(model)
-    
+    del (model)
+
     print(args)
     with open('{}/args.txt'.format(args.save), 'w') as f:
         print(args, file=f)
-
     model = getattr(models, args.arch)(args)
     model = torch.nn.DataParallel(model.cuda())
     criterion = nn.CrossEntropyLoss().cuda()
@@ -61,8 +67,6 @@ def main():
             optimizer.load_state_dict(checkpoint['optimizer'])
 
     cudnn.benchmark = True
-
-    train_loader, val_loader, test_loader = get_dataloaders(args)
 
     if args.evalmode is not None:
         state_dict = torch.load(args.evaluate_from)['state_dict']
@@ -105,7 +109,7 @@ def main():
             'optimizer': optimizer.state_dict(),
         }, args, is_best, model_filename, scores)
 
-        model_path = '%s/save_models/checkpoint_%03d.pth.tar' % (args.save, epoch-1)
+        model_path = '%s/save_models/checkpoint_%03d.pth.tar' % (args.save, epoch - 1)
         if os.path.exists(model_path):
             os.remove(model_path)
 
@@ -116,6 +120,7 @@ def main():
     validate(test_loader, model, criterion)
 
     return
+
 
 def train(train_loader, model, criterion, optimizer, epoch):
     batch_time = AverageMeter()
@@ -182,6 +187,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     return losses.avg, top1[-1].avg, top5[-1].avg, running_lr
 
+
 def validate(val_loader, model, criterion):
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -233,19 +239,24 @@ def validate(val_loader, model, criterion):
                         i + 1, len(val_loader),
                         batch_time=batch_time, data_time=data_time,
                         loss=losses, top1=top1[-1], top5=top5[-1]))
-    
-    result_file =  os.path.join(args.save, 'AnytimeResults.txt')
-    
+
+    result_file = os.path.join(args.save, 'AnytimeResults.txt')
+
     fd = open(result_file, 'w+')
     fd.write('AnytimeResults' + '\n')
     for j in range(args.num_exits):
-        test_str = (' @{ext}** flops {flops:.2f}M prec@1 {top1.avg:.3f} prec@5 {top5.avg:.3f}'.format(ext = j+1, flops=n_flops[j]/1e6, top1=top1[j], top5=top5[j]))
+        test_str = (' @{ext}** flops {flops:.2f}M prec@1 {top1.avg:.3f} prec@5 {top5.avg:.3f}'.format(ext=j + 1,
+                                                                                                      flops=n_flops[
+                                                                                                                j] / 1e6,
+                                                                                                      top1=top1[j],
+                                                                                                      top5=top5[j]))
         print(test_str)
         fd = open(result_file, 'a+')
         fd.write(test_str + '\n')
-    fd.close()  
+    fd.close()
     torch.save([e.avg for e in top1], os.path.join(args.save, 'acc.pth'))
     return losses.avg, top1[-1].avg, top5[-1].avg
+
 
 def save_checkpoint(state, args, is_best, filename, result):
     print(args)
@@ -265,15 +276,16 @@ def save_checkpoint(state, args, is_best, filename, result):
 
     with open(latest_filename, 'w') as fout:
         fout.write(model_filename)
-    
+
     if is_best:
         shutil.copyfile(model_filename, best_filename)
         best_filename_epoch = os.path.join(model_dir, 'best_model_epoch.txt')
         with open(best_filename_epoch, 'w') as fout:
             fout.write(model_filename)
-    
+
     print("=> saved checkpoint '{}'".format(model_filename))
     return
+
 
 def load_checkpoint(args):
     model_dir = os.path.join(args.save, 'save_models')
@@ -287,6 +299,7 @@ def load_checkpoint(args):
     state = torch.load(model_filename)
     print("=> loaded checkpoint '{}'".format(model_filename))
     return state
+
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -306,6 +319,7 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
+
 def accuracy(output, target, topk=(1,)):
     """Computes the precor@k for the specified values of k"""
     maxk = max(topk)
@@ -320,6 +334,7 @@ def accuracy(output, target, topk=(1,)):
         correct_k = correct[:k].view(-1).float().sum(0)
         res.append(correct_k.mul_(100.0 / batch_size))
     return res
+
 
 def adjust_learning_rate(optimizer, epoch, args, batch=None,
                          nBatch=None, method='multistep'):
@@ -339,6 +354,7 @@ def adjust_learning_rate(optimizer, epoch, args, batch=None,
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
     return lr
+
 
 if __name__ == '__main__':
     main()

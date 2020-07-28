@@ -11,7 +11,7 @@ exp_group = arg_parser.add_argument_group('exp', 'experiment setting')
 exp_group.add_argument('--save', default='save/default-{}'.format(time.time()),
                        type=str, metavar='SAVE',
                        help='path to the experiment logging directory'
-                       '(default: save/debug)')
+                            '(default: save/debug)')
 exp_group.add_argument('--resume', action='store_true', default=None,
                        help='path to latest checkpoint (default: none)')
 exp_group.add_argument('--evalmode', default=None,
@@ -42,7 +42,7 @@ arch_group = arg_parser.add_argument_group('arch', 'model architecture setting')
 arch_group.add_argument('--arch', type=str, default='RANet')
 arch_group.add_argument('--reduction', default=0.5, type=float,
                         metavar='C', help='compression ratio of DenseNet'
-                        ' (1 means dot\'t use compression) (default: 0.5)')
+                                          ' (1 means dot\'t use compression) (default: 0.5)')
 
 # msdnet config
 arch_group.add_argument('--nBlocks', type=int, default=2)
@@ -57,14 +57,13 @@ arch_group.add_argument('--step', type=int, default=4)
 arch_group.add_argument('--stepmode', type=str, default='even', choices=['even', 'lg'])
 arch_group.add_argument('--bnAfter', action='store_true', default=True)
 
-
 # training related
 optim_group = arg_parser.add_argument_group('optimization', 'optimization setting')
 optim_group.add_argument('--epochs', default=300, type=int, metavar='N',
                          help='number of total epochs to run (default: 300)')
 optim_group.add_argument('--start-epoch', default=0, type=int, metavar='N',
                          help='manual epoch number (useful on restarts)')
-optim_group.add_argument('-b', '--batch-size', default=64, type=int,
+optim_group.add_argument('-b', '--batch-size', default=32, type=int,
                          metavar='N', help='mini-batch size (default: 64)')
 optim_group.add_argument('--optimizer', default='sgd',
                          choices=['sgd', 'rmsprop', 'adam'], metavar='N',
@@ -73,14 +72,31 @@ optim_group.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                          metavar='LR',
                          help='initial learning rate (default: 0.1)')
 optim_group.add_argument('--lr-type', default='multistep', type=str, metavar='T',
-                        help='learning rate strategy (default: multistep)',
-                        choices=['cosine', 'multistep'])
+                         help='learning rate strategy (default: multistep)',
+                         choices=['cosine', 'multistep'])
 optim_group.add_argument('--decay-rate', default=0.1, type=float, metavar='N',
                          help='decay rate of learning rate (default: 0.1)')
 optim_group.add_argument('--momentum', default=0.9, type=float, metavar='M',
                          help='momentum (default=0.9)')
 optim_group.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
                          metavar='W', help='weight decay (default: 1e-4)')
+
+##### custom
+custom_group = arg_parser.add_argument_group('custom', 'customizing settings')
+custom_group.add_argument('--Is', default=False, type=bool,
+                          help='Do you use custom dataset? (default: False)')
+custom_group.add_argument('--resolution', default=160, type=int,
+                          help='The resolution of custom dataset. (default: 160)')
+custom_group.add_argument('--custom_path', default='', type=str,
+                          help='The path of your custom dataset. (default: None)')
+custom_group.add_argument('--number_of_class', default=10, type=int,
+                          help='The number of Custom dataset class')
+
+custom_group.add_argument('--test_path', default="custom/test.npy", type=str,
+                            help='Test data path( npy file or directory')
+custom_group.add_argument('--model_path', type=str,
+                            help='Path of saved model')
+#####
 
 args = arg_parser.parse_args()
 
@@ -100,3 +116,8 @@ elif args.data == 'cifar100':
     args.num_classes = 100
 else:
     args.num_classes = 1000
+
+#### custom
+if args.Is:
+    args.num_classes = args.number_of_class
+####

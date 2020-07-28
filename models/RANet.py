@@ -292,7 +292,11 @@ class RANet(nn.Module):
                 scale_flow.append(m)
                 
                 if n_block_curr > self.nBlocks[ii]:
-                    if args.data.startswith('cifar100'):
+                    if args.Is:
+                        self.classifier.append(
+                            self._build_classifier_custom(nIn, args.number_of_class)
+                        )
+                    elif args.data.startswith('cifar100'):
                         self.classifier.append(
                         self._build_classifier_cifar(nIn, 100))
                     elif args.data.startswith('cifar10'):
@@ -380,7 +384,6 @@ class RANet(nn.Module):
                     _x, _low_ftr = self.scale_flows[ii][i](_x, low_ftrs[i])
                     _low_ftrs.append(_low_ftr)
                 n_block_curr += 1
-                
                 if n_block_curr > self.nBlocks[ii]:
                     res.append(self.classifier[classifier_idx](_x))
                     classifier_idx += 1
